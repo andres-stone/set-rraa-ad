@@ -1,0 +1,581 @@
+---
+title: "Puestos de Trabajo: Análisis de Indicadores del Mercado Laboral"
+subtitle: "Período 2016–2025 | Estadísticas del Trabajo"
+author: "Instituto Nacional de Estadísticas — División de Estadísticas del Trabajo"
+date: "`r format(Sys.Date(), '%B de %Y')`"
+output:
+  html_document:
+    theme: flatly
+    highlight: tango
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+    number_sections: true
+    self_contained: true
+---
+
+```{css, echo=FALSE}
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap');
+
+body {
+  font-family: 'Open Sans', Arial, sans-serif;
+  font-size: 14px;
+  color: #2C2C2C;
+  text-align: justify;
+  line-height: 1.7;
+}
+
+h1, h2, h3, h4 {
+  color: #003A70;
+  font-weight: 700;
+}
+
+h1.title {
+  font-size: 26px;
+  color: #003A70;
+  border-bottom: 4px solid #F5A800;
+  padding-bottom: 10px;
+}
+
+.section h1 {
+  border-left: 5px solid #F5A800;
+  padding-left: 12px;
+}
+
+.section h2 {
+  border-left: 3px solid #003A70;
+  padding-left: 10px;
+}
+
+#TOC {
+  background-color: #F2F2F2;
+  border-left: 4px solid #003A70;
+  font-size: 13px;
+}
+
+.callout-ine {
+  background-color: #EAF1F9;
+  border-left: 5px solid #003A70;
+  padding: 14px 18px;
+  margin: 20px 0;
+}
+
+.callout-nota {
+  background-color: #FFF8E6;
+  border-left: 5px solid #F5A800;
+  padding: 14px 18px;
+  margin: 20px 0;
+}
+
+.footer-ine {
+  border-top: 2px solid #003A70;
+  padding-top: 10px;
+  margin-top: 40px;
+  font-size: 11px;
+  color: #6D6E71;
+  text-align: center;
+}
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  warning = FALSE,
+  message = FALSE,
+  fig.align = "center"
+)
+
+# paquetes
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(plotly)
+library(knitr)
+library(kableExtra)
+library(readxl)
+library(scales)
+library(purrr)
+library(stringr)
+
+# paleta institucional
+ine_azul     <- "#003A70"
+ine_celeste  <- "#005A9C"
+ine_amarillo <- "#F5A800"
+ine_gris     <- "#6D6E71"
+
+paleta <- c(
+  "#003A70",
+  "#005A9C",
+  "#0079C2",
+  "#F5A800",
+  "#E08800",
+  "#8DB8D9",
+  "#6D6E71",
+  "#A8C8E8",
+  "#1B4F72",
+  "#2874A6",
+  "#5499C7",
+  "#7FB3D5"
+)
+
+# carga datos -----------------------------------------------------------
+
+tbl_pt <- read_excel(
+  "output/empleo-publico/tbl_suseso_asalariados_publicos.xlsx"
+)
+
+tbl_pt_sx <- read_excel(
+  "output/empleo-publico/puestos-de-trabajo/tbl_sx.xlsx"
+)
+
+tbl_pt_seccion <- read_excel(
+  "output/empleo-publico/puestos-de-trabajo/tbl_rue.xlsx"
+)
+
+tbl_pt_subsector <- read_excel(
+  "output/empleo-publico/puestos-de-trabajo/tbl_ssi.xlsx"
+)
+
+# total -----------------------------------------------------------------
+
+df_total <-
+  tbl_pt %>%
+  arrange(fecha) %>%
+  mutate(
+    var12_pt = (pt / lag(pt, 12) - 1) * 100
+  )
+
+ultimo_per <- max(df_total$fecha)
+
+# función preparación ---------------------------------------------------
+
+prep_base <- function(df, grupo_var){
+
+  grupo_sym <- rlang::sym(grupo_var)
+
+  df %>%
+    select(fecha, !!grupo_sym, indicador, valor) %>%
+    pivot_wider(
+      names_from = indicador,
+      values_from = valor
+    ) %>%
+    rename(grupo = !!grupo_sym)
+}
+
+# sexo ------------------------------------------------------------------
+
+df_sx <-
+  prep_base(tbl_pt_sx, "sexo") %>%
+  mutate(
+    grupo = case_when(
+      grupo == 1 ~ "Hombres",
+      grupo == 2 ~ "Mujeres",
+      TRUE ~ "Sin información"
+    )
+  )
+
+# sección ---------------------------------------------------------------
+
+nombre_grupo_seccion <- names(tbl_pt_seccion)[
+  !names(tbl_pt_seccion) %in%
+    c(
+      "anno",
+      "mes",
+      "fecha",
+      "indicador",
+      "valor"
+    )
+][1]
+
+df_seccion <-
+  prep_base(
+    tbl_pt_seccion,
+    nombre_grupo_seccion
+  )
+
+# subsector -------------------------------------------------------------
+
+nombre_grupo_subsector <- names(tbl_pt_subsector)[
+  !names(tbl_pt_subsector) %in%
+    c(
+      "anno",
+      "mes",
+      "fecha",
+      "indicador",
+      "valor"
+    )
+][1]
+
+df_subsector <-
+  prep_base(
+    tbl_pt_subsector,
+    nombre_grupo_subsector
+  )
+
+# funciones -------------------------------------------------------------
+
+plot_pt <- function(data, titulo){
+
+  plot_ly(
+    data,
+    x = ~fecha
+  ) %>%
+    add_lines(
+      y = ~pt,
+      color = ~grupo,
+      colors = paleta,
+      line = list(width = 2),
+      hovertemplate =
+        paste(
+          "<b>%{fullData.name}</b>",
+          "<br>%{x|%b %Y}",
+          "<br>Puestos: %{y:,.0f}",
+          "<extra></extra>"
+        )
+    ) %>%
+    layout(
+      title = titulo,
+      xaxis = list(
+        title = "",
+        tickformat = "%Y"
+      ),
+      yaxis = list(
+        title = "Puestos de trabajo"
+      ),
+      legend = list(
+        orientation = "h"
+      ),
+      paper_bgcolor = "white",
+      plot_bgcolor = "white"
+    )
+}
+
+plot_incidencia <- function(data, total, titulo){
+
+  plot_ly(
+    data,
+    x = ~fecha
+  ) %>%
+    add_bars(
+      y = ~inc12_pt,
+      color = ~grupo,
+      colors = paleta,
+      hovertemplate =
+        paste(
+          "<b>%{fullData.name}</b>",
+          "<br>%{x|%b %Y}",
+          "<br>Incidencia: %{y:.2f}",
+          "<extra></extra>"
+        )
+    ) %>%
+    add_lines(
+      data = total,
+      y = ~var12_pt,
+      name = "Variación anual total",
+      line = list(
+        color = "black",
+        width = 3
+      ),
+      hovertemplate =
+        paste(
+          "<b>Variación total</b>",
+          "<br>%{x|%b %Y}",
+          "<br>%{y:.2f}%",
+          "<extra></extra>"
+        )
+    ) %>%
+    layout(
+      barmode = "stack",
+      title = titulo,
+      xaxis = list(
+        title = "",
+        tickformat = "%Y"
+      ),
+      yaxis = list(
+        title = "Incidencia / Variación anual"
+      ),
+      legend = list(
+        orientation = "h"
+      ),
+      paper_bgcolor = "white",
+      plot_bgcolor = "white"
+    )
+}
+
+tabla_resumen <- function(data){
+
+  ult <- max(data$fecha)
+
+  data %>%
+    filter(
+      fecha %in% c(
+        ult,
+        ult %m-% months(12)
+      )
+    ) %>%
+    arrange(grupo, fecha) %>%
+    group_by(grupo) %>%
+    summarise(
+      `Nivel actual` = round(last(pt), 0),
+      `Nivel 12 meses` = round(first(pt), 0),
+      `Var. anual (%)` = round(last(var12_pt), 1),
+      `Incidencia` = round(last(inc12_pt), 2),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(`Nivel actual`))
+}
+```
+
+::: {.callout-ine}
+**Nota metodológica:** Las estadísticas presentadas corresponden a puestos de trabajo asalariados del empleo público elaborados a partir de registros administrativos.
+:::
+
+# 1. Presentación
+
+El presente informe analiza la evolución de los puestos de trabajo asalariados del sector público utilizando información proveniente de registros administrativos. El análisis considera estimaciones agregadas y desagregadas por sexo, sección económica y subsector institucional.
+
+# 2. Aspectos metodológicos
+
+## Definiciones
+
+- **Puestos de trabajo (pt):** número total de vínculos laborales activos.
+- **Variación anual (var12_pt):** crecimiento porcentual respecto al mismo mes del año anterior.
+- **Incidencia anual (inc12_pt):** contribución de cada agrupación a la variación anual total.
+
+::: {.callout-nota}
+La suma de incidencias por categoría equivale a la variación anual total del indicador agregado.
+:::
+
+# 3. Estimación general
+
+## Evolución de los puestos de trabajo
+
+```{r grafico-total, fig.height=5}
+plot_ly(
+  df_total,
+  x = ~fecha
+) %>%
+  add_lines(
+    y = ~pt,
+    line = list(
+      color = ine_azul,
+      width = 2.5
+    ),
+    name = "Puestos de trabajo",
+    hovertemplate =
+      paste(
+        "<b>%{x|%b %Y}</b>",
+        "<br>Puestos: %{y:,.0f}",
+        "<extra></extra>"
+      )
+  ) %>%
+  layout(
+    title = "Puestos de trabajo asalariados del sector público",
+    xaxis = list(
+      title = "",
+      tickformat = "%Y"
+    ),
+    yaxis = list(
+      title = "Puestos de trabajo"
+    ),
+    paper_bgcolor = "white",
+    plot_bgcolor = "white"
+  )
+```
+
+## Variación anual
+
+```{r grafico-var12, fig.height=4}
+plot_ly(
+  df_total,
+  x = ~fecha
+) %>%
+  add_lines(
+    y = ~var12_pt,
+    line = list(
+      color = ine_amarillo,
+      width = 2.5
+    ),
+    name = "Variación anual",
+    hovertemplate =
+      paste(
+        "<b>%{x|%b %Y}</b>",
+        "<br>Variación anual: %{y:.2f}%",
+        "<extra></extra>"
+      )
+  ) %>%
+  layout(
+    title = "Variación anual de puestos de trabajo (%)",
+    xaxis = list(
+      title = "",
+      tickformat = "%Y"
+    ),
+    yaxis = list(
+      title = "%"
+    ),
+    paper_bgcolor = "white",
+    plot_bgcolor = "white"
+  )
+```
+
+El último período disponible corresponde a `r format(ultimo_per, "%B de %Y")`, registrándose un total de `r scales::comma(round(last(df_total$pt),0), big.mark = ".")` puestos de trabajo asalariados del sector público.
+
+# 3.1 Estimación según sexo
+
+## Evolución de puestos de trabajo
+
+```{r sx-pt, fig.height=5}
+plot_pt(
+  df_sx,
+  "Puestos de trabajo según sexo"
+)
+```
+
+## Incidencias anuales
+
+```{r sx-inc, fig.height=5}
+plot_incidencia(
+  df_sx,
+  df_total,
+  "Incidencias anuales según sexo"
+)
+```
+
+## Cuadro resumen
+
+```{r tabla-sx}
+tabla_resumen(df_sx) %>%
+  kable(
+    align = c("l", "r", "r", "r", "r"),
+    caption = paste0(
+      "Resumen estadístico según sexo — ",
+      format(ultimo_per, "%B de %Y")
+    )
+  ) %>%
+  kable_styling(
+    bootstrap_options = c(
+      "striped",
+      "hover",
+      "condensed"
+    ),
+    full_width = TRUE
+  ) %>%
+  row_spec(
+    0,
+    background = ine_azul,
+    color = "white",
+    bold = TRUE
+  )
+```
+
+# 3.2 Estimación según sección económica
+
+## Evolución de puestos de trabajo
+
+```{r seccion-pt, fig.height=6}
+plot_pt(
+  df_seccion,
+  "Puestos de trabajo según sección económica"
+)
+```
+
+## Incidencias anuales
+
+```{r seccion-inc, fig.height=6}
+plot_incidencia(
+  df_seccion,
+  df_total,
+  "Incidencias anuales según sección económica"
+)
+```
+
+## Cuadro resumen
+
+```{r tabla-seccion}
+tabla_resumen(df_seccion) %>%
+  kable(
+    align = c("l", "r", "r", "r", "r"),
+    caption = paste0(
+      "Resumen estadístico según sección económica — ",
+      format(ultimo_per, "%B de %Y")
+    )
+  ) %>%
+  kable_styling(
+    bootstrap_options = c(
+      "striped",
+      "hover",
+      "condensed"
+    ),
+    full_width = TRUE
+  ) %>%
+  row_spec(
+    0,
+    background = ine_azul,
+    color = "white",
+    bold = TRUE
+  )
+```
+
+# 3.3 Estimación según subsector institucional
+
+## Evolución de puestos de trabajo
+
+```{r subsector-pt, fig.height=6}
+plot_pt(
+  df_subsector,
+  "Puestos de trabajo según subsector institucional"
+)
+```
+
+## Incidencias anuales
+
+```{r subsector-inc, fig.height=6}
+plot_incidencia(
+  df_subsector,
+  df_total,
+  "Incidencias anuales según subsector institucional"
+)
+```
+
+## Cuadro resumen
+
+```{r tabla-subsector}
+tabla_resumen(df_subsector) %>%
+  kable(
+    align = c("l", "r", "r", "r", "r"),
+    caption = paste0(
+      "Resumen estadístico según subsector institucional — ",
+      format(ultimo_per, "%B de %Y")
+    )
+  ) %>%
+  kable_styling(
+    bootstrap_options = c(
+      "striped",
+      "hover",
+      "condensed"
+    ),
+    full_width = TRUE
+  ) %>%
+  row_spec(
+    0,
+    background = ine_azul,
+    color = "white",
+    bold = TRUE
+  )
+```
+
+# 4. Conclusiones
+
+Los resultados muestran la evolución reciente de los puestos de trabajo asalariados del sector público y permiten identificar las principales contribuciones al crecimiento anual del empleo según distintas desagregaciones.
+
+La utilización de incidencias facilita interpretar qué agrupaciones explican la dinámica agregada del empleo público y evaluar cambios estructurales en su composición.
+
+---
+
+::: {.footer-ine}
+Instituto Nacional de Estadísticas — INE Chile  
+División de Estadísticas del Trabajo  
+`r format(Sys.Date(), "%Y")`
+:::
