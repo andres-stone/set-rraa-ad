@@ -5,8 +5,8 @@ Authors@R:
     person("INE Chile", "OOEE", email = "ooee@ine.gob.cl", role = c("aut", "cre"))
 Description: Librería interna para el procesamiento de bases mensuales de
     flujos laborales a partir de cotizaciones SUSESO y registros del REP.
-    Cubre preprocesamiento, imputación de lagunas, cálculo de tamaño de empresa
-    y enriquecimiento final del panel.
+    Cubre preprocesamiento, imputación de lagunas, cálculo de tamaño de empresa,
+    enriquecimiento final del panel y estimación de indicadores de flujos laborales.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -23,7 +23,14 @@ Imports:
     dbplyr,
     tibble,
     tidyr,
-    tictoc
+    tictoc,
+    data.table,
+    openxlsx,
+    stringr,
+    readxl,
+    writexl,
+    aws.s3,
+    stats
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

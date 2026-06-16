@@ -1,20 +1,26 @@
 
 # Orquestador del pipeline TRL
-# Ejecuta los 5 scripts en secuencia con logging de tiempo y manejo de errores.
-# Permite retomar desde una etapa específica usando el argumento `desde`.
-
+# Ejecuta los 10 scripts en secuencia con logging de tiempo y manejo de errores.
+# Permite retomar desde una etapa específica usando los argumentos `desde` y `hasta`.
+#
 # uso:
-#   source("orquestador.R")                         # ejecuta todo
-#   source("orquestador.R"); pipeline(desde = "03") # retoma desde script 03
+#   source("orquestador.R")                              # ejecuta todo
+#   source("orquestador.R"); pipeline(desde = "03")      # retoma desde script 03
+#   source("orquestador.R"); pipeline(desde = "06", hasta = "10")  # solo indicadores
 
 library(tictoc)
 
 etapas <- list(
-  list(id = "01", nombre = "personas",       ruta = "scripts/01-personas.R"),
-  list(id = "02", nombre = "preprocesadas",  ruta = "scripts/02-preprocesadas.R"),
-  list(id = "03", nombre = "imputadas",      ruta = "scripts/03-imputadas.R"),
-  list(id = "04", nombre = "tamano",         ruta = "scripts/04-tamano.R"),
-  list(id = "05", nombre = "completas",      ruta = "scripts/05-completas.R")
+  list(id = "01", nombre = "personas",         ruta = "scripts/01-personas.R"),
+  list(id = "02", nombre = "preprocesadas",    ruta = "scripts/02-preprocesadas.R"),
+  list(id = "03", nombre = "imputadas",        ruta = "scripts/03-imputadas.R"),
+  list(id = "04", nombre = "tamano",           ruta = "scripts/04-tamano.R"),
+  list(id = "05", nombre = "completas",        ruta = "scripts/05-completas.R"),
+  list(id = "06", nombre = "puestos_trabajo",  ruta = "scripts/06-puestos-trabajo.R"),
+  list(id = "07", nombre = "flujos_fijo",      ruta = "scripts/07-flujos-fijo.R"),
+  list(id = "08", nombre = "flujos_movil",     ruta = "scripts/08-flujos-movil.R"),
+  list(id = "09", nombre = "indicadores",      ruta = "scripts/09-indicadores.R"),
+  list(id = "10", nombre = "cuadratura",       ruta = "scripts/10-cuadratura.R")
 )
 
 ejecutar_etapa <- function(etapa) {
@@ -38,7 +44,7 @@ ejecutar_etapa <- function(etapa) {
   resultado
 }
 
-pipeline <- function(desde = "01", hasta = "05") {
+pipeline <- function(desde = "01", hasta = "10") {
   etapas_a_correr <- Filter(
     function(e) e$id >= desde & e$id <= hasta,
     etapas
